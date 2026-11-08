@@ -39,7 +39,9 @@ button,.btn{font:600 15px system-ui,sans-serif;border:1px solid var(--bd);backgr
 #txt img{max-width:100%;height:auto}
 #txt h1,#txt h2,#txt h3{line-height:1.25}
 #txt a{color:var(--ac)}
-#pdfw{padding:calc(60px + env(safe-area-inset-top,0px)) 0 70px;text-align:center}
+#pdfw{padding:calc(60px + env(safe-area-inset-top,0px)) 0 70px;text-align:center;overflow-x:auto;touch-action:pan-y}
+#pdfw.zm{text-align:left;touch-action:pan-x pan-y}
+#txt{touch-action:pan-y}
 body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 #set{position:fixed;left:12px;right:12px;top:calc(62px + env(safe-area-inset-top,0px));max-width:420px;margin:0 auto;background:var(--cd);border:1px solid var(--bd);border-radius:18px;padding:16px;z-index:6;display:none}
 #set.on{display:block}
@@ -60,7 +62,7 @@ body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-var $=function(s){return document.querySelector(s)},BK=[],cur=null,ep=null,pdf=null,tmr;
+var $=function(s){return document.querySelector(s)},BK=[],cur=null,ep=null,pdf=null,tmr,ZM=1;
 if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 var ST=Object.assign({th:"noite",fs:19,ff:"serif",goal:1,streak:0,last:null,today:{d:"",n:0}},JSON.parse(localStorage.getItem("lst")||"{}"));
 function sst(){localStorage.setItem("lst",JSON.stringify(ST));document.body.dataset.th=ST.th;document.body.dataset.ff=ST.ff;document.body.style.setProperty("--fs",ST.fs+"px")}
@@ -109,18 +111,30 @@ var ims=[].slice.call(doc.querySelectorAll("img"));
 return Promise.all(ims.map(function(im){var s=im.getAttribute("src")||"";if(!s||/^data:/.test(s))return;var f=ep.z.file(rp(path,s.split("#")[0]));if(!f)return;return f.async("blob").then(function(b){im.src=URL.createObjectURL(b)})})).then(function(){
 $("#txt").innerHTML=doc.body.innerHTML;$("#txt").querySelectorAll("a").forEach(function(a){a.onclick=function(e){e.preventDefault()}});
 window.scrollTo(0,y?y*Math.max(0,document.body.scrollHeight-innerHeight):0);lab();sv()})})}
-function showPg(p){p=Math.max(1,Math.min(pdf.numPages,p));cur.pos.c=p;
-return pdf.getPage(p).then(function(pg){var w=Math.min(innerWidth,900),v1=pg.getViewport({scale:1}),dpr=window.devicePixelRatio||1,v=pg.getViewport({scale:w/v1.width*dpr}),cv=$("#cv");
+function showPg(p,keep){p=Math.max(1,Math.min(pdf.numPages,p));cur.pos.c=p;
+return pdf.getPage(p).then(function(pg){var w=Math.min(innerWidth,900)*ZM,v1=pg.getViewport({scale:1}),dpr=Math.min(window.devicePixelRatio||1,ZM>1?2:3),v=pg.getViewport({scale:w/v1.width*dpr}),cv=$("#cv");
 cv.width=v.width;cv.height=v.height;cv.style.width=w+"px";
-return pg.render({canvasContext:cv.getContext("2d"),viewport:v}).promise}).then(function(){window.scrollTo(0,0);lab();sv()})}
+return pg.render({canvasContext:cv.getContext("2d"),viewport:v}).promise}).then(function(){if(!keep)window.scrollTo(0,0);$("#pdfw").classList.toggle("zm",ZM>1);lab();sv()})}
 function lab(){$("#lb").textContent=cur.type==="epub"?"Cap. "+(cur.pos.c+1)+" de "+cur.n:"Pág. "+cur.pos.c+" de "+cur.n}
 function sv(){DB.put(cur)}
 function step(d){var c=cur.pos.c+d;cur.pos.y=0;
 if(cur.type==="epub"){if(c<0||c>=ep.spine.length)return;if(c>cur.pos.max){cur.pos.max=c;credit()}showCh(c,0)}
-else{if(c<1||c>pdf.numPages)return;if(Math.floor(c/10)>Math.floor(cur.pos.max/10))credit();if(c>cur.pos.max)cur.pos.max=c;showPg(c)}}
+else{if(c<1||c>pdf.numPages)return;if(Math.floor(c/10)>Math.floor(cur.pos.max/10))credit();if(c>cur.pos.max)cur.pos.max=c;ZM=1;showPg(c)}}
 window.addEventListener("scroll",function(){if(!cur||cur.type!=="epub"||!$("#rd").classList.contains("on"))return;clearTimeout(tmr);tmr=setTimeout(function(){cur.pos.y=window.scrollY/Math.max(1,document.body.scrollHeight-innerHeight);sv()},600)});
 function back(){view("home");DB.all().then(function(a){BK=a;home()})}
 function setUI(){$("#set").innerHTML='<div class="r"><span>Letra</span><button onclick="fz(-1)">A−</button><button onclick="fz(1)">A+</button></div><div class="r"><span>Tema</span><button onclick="th(\'papel\')">Papel</button><button onclick="th(\'sepia\')">Sépia</button><button onclick="th(\'noite\')">Noite</button></div><div class="r"><span>Tipo</span><button onclick="ft(\'serif\')">Serifa</button><button onclick="ft(\'sans\')">Sem serifa</button></div><div class="r"><span>Meta diária</span><button onclick="gl(1)">1 cap.</button><button onclick="gl(2)">2 cap.</button></div>'}
+(function(){var sx=0,sy=0,d0=1,dn=1,pinch=false,sw=false,last=0,rd=document.getElementById("rd");
+function dist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)}
+function zoom(r){if(cur.type==="epub"){ST.fs=Math.max(14,Math.min(36,Math.round(ST.fs*r)));sst()}else{ZM=Math.max(1,Math.min(4,ZM*r));showPg(cur.pos.c,true)}}
+rd.addEventListener("touchstart",function(e){if(e.target.closest&&e.target.closest("#set,.bar"))return;if(e.touches.length===2){pinch=true;sw=false;d0=dn=dist(e.touches)}else if(e.touches.length===1){pinch=false;sw=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY}},{passive:true});
+rd.addEventListener("touchmove",function(e){if(pinch&&e.touches.length===2)dn=dist(e.touches)},{passive:true});
+rd.addEventListener("touchend",function(e){if(!cur)return;
+if(pinch){if(e.touches.length<2){pinch=false;var r=dn/d0;if(isFinite(r)&&Math.abs(r-1)>.08)zoom(r)}return}
+if(!sw||!e.changedTouches.length)return;sw=false;
+var dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6&&!(cur.type==="pdf"&&ZM>1)){step(dx<0?1:-1)}
+else if(Math.abs(dx)<10&&Math.abs(dy)<10){var t=Date.now();if(t-last<300&&cur.type==="pdf"){ZM=ZM>1?1:2.2;showPg(cur.pos.c,true)}last=t}});
+})();
 function fz(d){ST.fs=Math.max(14,Math.min(30,ST.fs+d*2));sst()}
 function th(t){ST.th=t;sst()}
 function ft(f){ST.ff=f;sst()}
