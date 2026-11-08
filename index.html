@@ -39,7 +39,9 @@ button,.btn{font:600 15px system-ui,sans-serif;border:1px solid var(--bd);backgr
 #txt img{max-width:100%;height:auto}
 #txt h1,#txt h2,#txt h3{line-height:1.25}
 #txt a{color:var(--ac)}
-#pdfw{padding:calc(60px + env(safe-area-inset-top,0px)) 0 70px;text-align:center;overflow-x:auto;touch-action:pan-y}
+#pdfw{padding:calc(60px + env(safe-area-inset-top,0px)) 0 70px;display:flex;min-height:100vh;overflow-x:auto;touch-action:pan-y}
+#pdfw[hidden]{display:none}
+#pdfw canvas{margin:auto;flex:none}
 #pdfw.zm{text-align:left;touch-action:pan-x pan-y}
 #txt{touch-action:pan-y}
 body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
@@ -67,7 +69,7 @@ body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 <script>
 var $=function(s){return document.querySelector(s)},BK=[],cur=null,ep=null,pdf=null,tmr,ZM=1;
 if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-var ST=Object.assign({th:"noite",fs:19,ff:"serif",goal:1,streak:0,last:null,today:{d:"",n:0}},JSON.parse(localStorage.getItem("lst")||"{}"));
+var ST=Object.assign({th:"noite",pm:"img",fs:19,ff:"serif",goal:1,streak:0,last:null,today:{d:"",n:0}},JSON.parse(localStorage.getItem("lst")||"{}"));
 function sst(){localStorage.setItem("lst",JSON.stringify(ST));document.body.dataset.th=ST.th;document.body.dataset.ff=ST.ff;document.body.style.setProperty("--fs",ST.fs+"px")}
 function ds(o){var d=new Date();d.setDate(d.getDate()+(o||0));return d.getFullYear()+"-"+(d.getMonth()+1)+"-"+d.getDate()}
 function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
@@ -114,10 +116,24 @@ var ims=[].slice.call(doc.querySelectorAll("img"));
 return Promise.all(ims.map(function(im){var s=im.getAttribute("src")||"";if(!s||/^data:/.test(s))return;var f=ep.z.file(rp(path,s.split("#")[0]));if(!f)return;return f.async("blob").then(function(b){im.src=URL.createObjectURL(b)})})).then(function(){
 $("#txt").innerHTML=doc.body.innerHTML;$("#txt").querySelectorAll("a").forEach(function(a){a.onclick=function(e){e.preventDefault()}});
 window.scrollTo(0,y?y*Math.max(0,document.body.scrollHeight-innerHeight):0);lab();sv()})})}
-function showPg(p,keep){p=Math.max(1,Math.min(pdf.numPages,p));cur.pos.c=p;
-return pdf.getPage(p).then(function(pg){var w=Math.min(innerWidth,900)*ZM,v1=pg.getViewport({scale:1}),dpr=Math.min(window.devicePixelRatio||1,ZM>1?2:3),v=pg.getViewport({scale:w/v1.width*dpr}),cv=$("#cv");
+function pgText(pg){return pg.getTextContent().then(function(tc){var L=[],y=null,c="";
+tc.items.forEach(function(it){if(!it.str)return;var yy=Math.round(it.transform[5]);if(y===null)y=yy;if(Math.abs(yy-y)>3){if(c.trim())L.push({t:c.trim(),y:y});c="";y=yy}c+=it.str});
+if(c.trim())L.push({t:c.trim(),y:y});if(L.length<3)return "";
+var g=[],mx=0;for(var i=1;i<L.length;i++)g.push(Math.abs(L[i-1].y-L[i].y));g.sort(function(a,b){return a-b});var md=g[Math.floor(g.length/2)]||12;
+L.forEach(function(l){mx=Math.max(mx,l.t.length)});
+var P=[],q="",pv=null;
+L.forEach(function(l){if(pv){var gap=Math.abs(pv.y-l.y),nw=gap>md*1.5||(/[.!?:”»"]$/.test(pv.t)&&pv.t.length<mx*.8);
+if(nw){P.push(q);q=l.t}else if(/[a-zà-ú]-$/.test(q)&&/^[a-zà-ú]/.test(l.t)){q=q.slice(0,-1)+l.t}else q+=" "+l.t}else q=l.t;pv=l});
+P.push(q);var s=P.join("");if(s.length<40)return "";
+return P.map(function(x){return "<p>"+esc(x)+"</p>"}).join("")})}
+function drawPg(pg){$("#txt").hidden=true;$("#pdfw").hidden=false;var w=Math.min(innerWidth,900)*ZM,v1=pg.getViewport({scale:1}),dpr=Math.min(window.devicePixelRatio||1,ZM>1?2:3),v=pg.getViewport({scale:w/v1.width*dpr}),cv=$("#cv");
 cv.width=v.width;cv.height=v.height;cv.style.width=w+"px";
-return pg.render({canvasContext:cv.getContext("2d"),viewport:v}).promise}).then(function(){if(!keep)window.scrollTo(0,0);$("#pdfw").classList.toggle("zm",ZM>1);lab();sv()})}
+return pg.render({canvasContext:cv.getContext("2d"),viewport:v}).promise}
+function showPg(p,keep){p=Math.max(1,Math.min(pdf.numPages,p));cur.pos.c=p;
+return pdf.getPage(p).then(function(pg){
+if(ST.pm==="txt")return pgText(pg).then(function(t){if(t){$("#txt").innerHTML=t;$("#txt").hidden=false;$("#pdfw").hidden=true;return}toast("Página sem texto: mostrada como imagem");return drawPg(pg)});
+return drawPg(pg)}).then(function(){if(!keep)window.scrollTo(0,0);$("#pdfw").classList.toggle("zm",ZM>1);lab();sv()})}
+function pm(m){ST.pm=m;ZM=1;sst();if(cur&&cur.type==="pdf")showPg(cur.pos.c)}
 function lab(){$("#lb").textContent=cur.type==="epub"?"Cap. "+(cur.pos.c+1)+" de "+cur.n:"Pág. "+cur.pos.c+" de "+cur.n}
 function sv(){DB.put(cur)}
 function step(d){var c=cur.pos.c+d;cur.pos.y=0;
@@ -125,10 +141,10 @@ if(cur.type==="epub"){if(c<0||c>=ep.spine.length)return;if(c>cur.pos.max){cur.po
 else{if(c<1||c>pdf.numPages)return;if(Math.floor(c/10)>Math.floor(cur.pos.max/10))credit();if(c>cur.pos.max)cur.pos.max=c;ZM=1;showPg(c)}}
 window.addEventListener("scroll",function(){if(!cur||cur.type!=="epub"||!$("#rd").classList.contains("on"))return;clearTimeout(tmr);tmr=setTimeout(function(){cur.pos.y=window.scrollY/Math.max(1,document.body.scrollHeight-innerHeight);sv()},600)});
 function back(){$("#rd").classList.remove("imm");view("home");DB.all().then(function(a){BK=a;home()})}
-function setUI(){$("#set").innerHTML='<div class="r"><span>Letra</span><button onclick="fz(-1)">A−</button><button onclick="fz(1)">A+</button></div><div class="r"><span>Tema</span><button onclick="th(\'papel\')">Papel</button><button onclick="th(\'sepia\')">Sépia</button><button onclick="th(\'noite\')">Noite</button></div><div class="r"><span>Tipo</span><button onclick="ft(\'serif\')">Serifa</button><button onclick="ft(\'sans\')">Sem serifa</button></div><div class="r"><span>Meta diária</span><button onclick="gl(1)">1 cap.</button><button onclick="gl(2)">2 cap.</button></div>'}
+function setUI(){$("#set").innerHTML='<div class="r"><span>Letra</span><button onclick="fz(-1)">A−</button><button onclick="fz(1)">A+</button></div><div class="r"><span>Tema</span><button onclick="th(\'papel\')">Papel</button><button onclick="th(\'sepia\')">Sépia</button><button onclick="th(\'noite\')">Noite</button></div><div class="r"><span>Tipo</span><button onclick="ft(\'serif\')">Serifa</button><button onclick="ft(\'sans\')">Sem serifa</button></div><div class="r"><span>PDF</span><button onclick="pm(\'img\')">Página</button><button onclick="pm(\'txt\')">Texto</button></div><div class="r"><span>Meta diária</span><button onclick="gl(1)">1 cap.</button><button onclick="gl(2)">2 cap.</button></div>'}
 (function(){var sx=0,sy=0,lx=0,ly=0,d0=1,dn=1,pinch=false,sw=false,aN=true,aP=true,last=0,tt,rd=document.getElementById("rd");
 function dist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)}
-function zoom(r){if(cur.type==="epub"){ST.fs=Math.max(14,Math.min(36,Math.round(ST.fs*r)));sst()}else{ZM=Math.max(1,Math.min(4,ZM*r));showPg(cur.pos.c,true)}}
+function zoom(r){if(cur.type==="epub"||ST.pm==="txt"){ST.fs=Math.max(14,Math.min(36,Math.round(ST.fs*r)));sst()}else{ZM=Math.max(1,Math.min(4,ZM*r));showPg(cur.pos.c,true)}}
 rd.addEventListener("touchstart",function(e){if(!cur||(e.target.closest&&e.target.closest("#set,.bar")))return;
 if(e.touches.length===2){pinch=true;sw=false;d0=dn=dist(e.touches)}
 else if(e.touches.length===1){pinch=false;sw=true;sx=lx=e.touches[0].clientX;sy=ly=e.touches[0].clientY;var p=document.getElementById("pdfw");
@@ -139,7 +155,7 @@ if(pinch){if(e.touches.length<2){pinch=false;var r=dn/d0;if(isFinite(r)&&Math.ab
 if(!sw)return;sw=false;var dx=lx-sx,dy=ly-sy;
 if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.2){if(dx<0&&aN)step(1);else if(dx>0&&aP)step(-1);return}
 if(Math.abs(dx)<10&&Math.abs(dy)<10){var t=Date.now();
-if(t-last<300){clearTimeout(tt);last=0;if(cur.type==="pdf"){ZM=ZM>1?1:2.2;showPg(cur.pos.c,true)}}
+if(t-last<300){clearTimeout(tt);last=0;if(cur.type==="pdf"&&ST.pm!=="txt"){ZM=ZM>1?1:2.2;showPg(cur.pos.c,true)}}
 else{last=t;tt=setTimeout(function(){rd.classList.toggle("imm")},300)}}}
 rd.addEventListener("touchend",fin);rd.addEventListener("touchcancel",fin);
 })();
