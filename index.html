@@ -52,17 +52,24 @@ body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 #rd.imm .bar,#rd.imm #set{display:none}
 #rd.imm #txt{padding-top:calc(28px + env(safe-area-inset-top,0px));padding-bottom:40px}
 #rd.imm #pdfw{padding:env(safe-area-inset-top,0px) 0 0}
+#sh{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:20;display:none;align-items:flex-end}
+#sh.on{display:flex}
+#shb{background:var(--cd);width:100%;max-height:85vh;overflow:auto;border-radius:20px 20px 0 0;padding:20px 20px calc(24px + env(safe-area-inset-bottom,0px))}
+#shb p{white-space:pre-wrap;line-height:1.6}
+#shb h3,#shb h4{margin:0 0 8px}
+#shb input{width:100%;margin:8px 0}
 </style>
 </head>
 <body data-th="noite">
 <div id="home" class="v on"></div>
 <div id="rd" class="v">
-<div class="bar" id="tb"><button onclick="back()">‹ Biblioteca</button><div class="c" id="ttl"></div><button onclick="fs()">⛶</button><button onclick="document.getElementById('set').classList.toggle('on')">Aa</button></div>
+<div class="bar" id="tb"><button onclick="back()">‹ Biblioteca</button><div class="c" id="ttl"></div><button onclick="resumo()">✨</button><button onclick="fs()">⛶</button><button onclick="document.getElementById('set').classList.toggle('on')">Aa</button></div>
 <div id="set"></div>
 <article id="txt"></article>
 <div id="pdfw" hidden><canvas id="cv"></canvas></div>
 <div class="bar" id="bb"><button onclick="step(-1)">‹ Anterior</button><div class="c" id="lb"></div><button class="pri" onclick="step(1)">Seguinte ›</button></div>
 </div>
+<div id="sh" onclick="if(event.target===this)closeSh()"><div id="shb"></div></div>
 <div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -84,6 +91,7 @@ var d=ds(),n=ST.today.d===d?ST.today.n:0,live=(ST.last===d||ST.last===ds(-1))?ST
 var last=BK.slice().sort(function(a,b){return(b.opened||0)-(a.opened||0)})[0];
 var h='<div class="top"><div><h1>Meu Leitor</h1><div class="mu">'+new Date().toLocaleDateString("pt-PT",{weekday:"long",day:"numeric",month:"long"})+'</div></div><label class="btn pri">+ Importar<input id="fi" type="file" multiple hidden accept=".epub,.pdf,application/epub+zip,application/pdf"></label></div>'+
 '<div class="goal"><svg class="ring" viewBox="0 0 84 84"><circle cx="42" cy="42" r="34" fill="none" stroke="var(--bd)" stroke-width="7"/><circle cx="42" cy="42" r="34" fill="none" stroke="var(--ac)" stroke-width="7" stroke-linecap="round" stroke-dasharray="'+(L*f)+' '+L+'" transform="rotate(-90 42 42)"/><text x="42" y="50" text-anchor="middle">'+Math.min(n,ST.goal)+'/'+ST.goal+'</text></svg><div><b>Meta de hoje</b><div class="mu">'+(n>=ST.goal?"Cumprida. Bom trabalho.":"Lê "+ST.goal+(ST.goal===1?" capítulo":" capítulos")+" para manter a sequência.")+'</div><div style="margin-top:6px">🔥 '+live+(live===1?" dia":" dias")+' seguidos</div></div></div>';
+h+='<div class="r" style="margin:0 0 18px"><button onclick="hojeSum()">📝 Resumos de hoje</button><button onclick="sugest()">✨ Sugestões</button><button onclick="keySheet()" style="flex:0 0 52px;min-width:0">🔑</button></div>';
 if(last)h+='<button class="cont" onclick="openBook('+last.id+')"><span style="font-size:13px;opacity:.8">Continuar a ler</span><b>'+esc(last.title)+'</b><span style="font-size:14px">'+(last.type==="epub"?"Capítulo "+(last.pos.c+1)+" de "+last.n:"Página "+last.pos.c+" de "+last.n)+' · '+pct(last)+'%</span></button>';
 h+=BK.length?'':'<div class="mu" style="text-align:center;padding:30px 0">A biblioteca está vazia. Toca em Importar e escolhe ficheiros EPUB ou PDF do telemóvel.</div>';
 BK.forEach(function(b){h+='<div class="bk"><div class="i" onclick="openBook('+b.id+')"><b>'+esc(b.title)+'</b><span class="mu">'+esc(b.author||b.type.toUpperCase())+' · '+pct(b)+'%</span><div class="pb"><i style="width:'+pct(b)+'%"></i></div></div><button class="x" onclick="rem('+b.id+')">Remover</button></div>'});
@@ -140,6 +148,33 @@ pdf.getPage(n).then(pgText).then(function(t){if(g!==GEN)return;var s=document.cr
 function updPg(){var s=[].slice.call($("#txt").children),pn=0;s.forEach(function(x){if(x.getBoundingClientRect().top<innerHeight*.35)pn=+x.dataset.p});
 if(pn&&pn!==cur.pos.c){if(Math.floor(pn/10)>Math.floor(cur.pos.max/10))credit();if(pn>cur.pos.max)cur.pos.max=pn;cur.pos.c=pn;lab();sv()}}
 window.addEventListener("scroll",function(){if(!cur||cur.type!=="pdf"||ST.pm!=="txt"||!$("#rd").classList.contains("on"))return;fillMore();clearTimeout(t2);t2=setTimeout(updPg,150)});
+var MODEL="claude-haiku-5-5";
+function sheet(x){$("#shb").innerHTML=x+'<div class="r"><button onclick="closeSh()">Fechar</button></div>';$("#sh").classList.add("on")}
+function closeSh(){$("#sh").classList.remove("on")}
+function keySheet(){sheet('<h3>Chave da IA</h3><p class="mu">Para os resumos e as sugestões, cria uma chave em console.anthropic.com (API Keys) e cola-a aqui. Fica guardada só neste telemóvel. Cada resumo custa muito pouco.</p><input id="kk" type="password" placeholder="sk-ant-...">'+'<div class="r"><button class="pri" onclick="saveKey()">Guardar chave</button></div>')}
+function saveKey(){localStorage.setItem("lkey",$("#kk").value.trim());closeSh();toast("Chave guardada")}
+function ask(q){var k=localStorage.getItem("lkey");if(!k){keySheet();return Promise.reject("nokey")}
+return fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"content-type":"application/json","x-api-key":k,"anthropic-version":"2023-06-01","anthropic-dangerous-direct-browser-access":"true"},body:JSON.stringify({model:MODEL,max_tokens:1024,messages:[{role:"user",content:q}]})}).then(function(r){return r.json()}).then(function(j){if(j.error)throw new Error(j.error.message);return j.content.map(function(c){return c.text||""}).join("")})}
+function curText(){var t=$("#txt");
+if(t.hidden)return pdf.getPage(cur.pos.c).then(pgText).then(function(x){return (x||"").replace(/<[^>]+>/g," ")});
+var s=[].slice.call(t.querySelectorAll("section"));
+if(s.length)return Promise.resolve(s.filter(function(x){return+x.dataset.p>=cur.pos.c}).map(function(x){return x.innerText}).join("\n"));
+return Promise.resolve(t.innerText)}
+function resumo(){if(!cur)return;var k=cur.id+":"+cur.type+cur.pos.c,S=JSON.parse(localStorage.getItem("lsum")||"{}");
+if(S[k]){showSum(S[k]);return}
+sheet('<p class="mu">A preparar o resumo…</p>');
+curText().then(function(tx){tx=tx.trim().slice(0,24000);if(tx.length<200)throw new Error("Há pouco texto aqui para resumir.");
+return ask('Resume em português, com palavras tuas e sem copiar frases, o trecho abaixo do livro "'+cur.title+'". Formato: 5 a 7 tópicos curtos com as ideias principais; termina com uma linha começada por Aplicação prática:.\n\n'+tx)})
+.then(function(r){S[k]={t:cur.title,d:ds(),r:r};localStorage.setItem("lsum",JSON.stringify(S));showSum(S[k])})
+.catch(function(e){if(e!=="nokey")sheet("<p>Não foi possível gerar o resumo: "+esc(e.message||e)+"</p>")})}
+function showSum(o){sheet("<h3>"+esc(o.t)+"</h3><p>"+esc(o.r)+"</p>")}
+function hojeSum(){var S=JSON.parse(localStorage.getItem("lsum")||"{}"),a=Object.keys(S).filter(function(k){return S[k].d===ds()});
+if(!a.length){sheet("<p>Ainda não geraste resumos hoje. Abre um livro e toca em ✨.</p>");return}
+sheet("<h3>Resumos de hoje</h3>"+a.map(function(k){return"<h4>"+esc(S[k].t)+"</h4><p>"+esc(S[k].r)+"</p>"}).join(""))}
+function sugest(){sheet('<p class="mu">A procurar boas leituras…</p>');
+var l=BK.map(function(b){return b.title}).join("; ")||"ainda nenhum";
+ask("O leitor gosta de livros de poder, manipulação e autoajuda e tem na biblioteca: "+l+". Sugere 5 livros semelhantes que não estejam na lista, de preferência com edição em português. Para cada um indica título, autor e uma frase sobre porque é semelhante. Texto simples, um livro por parágrafo, sem markdown.")
+.then(function(r){sheet("<h3>Sugestões para ti</h3><p>"+esc(r)+"</p>")}).catch(function(e){if(e!=="nokey")sheet("<p>Não foi possível obter sugestões: "+esc(e.message||e)+"</p>")})}
 function pm(m){ST.pm=m;ZM=1;sst();if(cur&&cur.type==="pdf")showPg(cur.pos.c)}
 function lab(){$("#lb").textContent=cur.type==="epub"?"Cap. "+(cur.pos.c+1)+" de "+cur.n:"Pág. "+cur.pos.c+" de "+cur.n}
 function sv(){DB.put(cur)}
