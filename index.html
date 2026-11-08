@@ -67,7 +67,7 @@ body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
-var $=function(s){return document.querySelector(s)},BK=[],cur=null,ep=null,pdf=null,tmr,ZM=1;
+var $=function(s){return document.querySelector(s)},BK=[],cur=null,ep=null,pdf=null,tmr,ZM=1,TL=0,GEN=0,TLd=false,t2;
 if(window.pdfjsLib)pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 var ST=Object.assign({th:"noite",pm:"img",fs:19,ff:"serif",goal:1,streak:0,last:null,today:{d:"",n:0}},JSON.parse(localStorage.getItem("lst")||"{}"));
 function sst(){localStorage.setItem("lst",JSON.stringify(ST));document.body.dataset.th=ST.th;document.body.dataset.ff=ST.ff;document.body.style.setProperty("--fs",ST.fs+"px")}
@@ -129,10 +129,17 @@ return P.map(function(x){return "<p>"+esc(x)+"</p>"}).join("")})}
 function drawPg(pg){$("#txt").hidden=true;$("#pdfw").hidden=false;var w=Math.min(innerWidth,900)*ZM,v1=pg.getViewport({scale:1}),dpr=Math.min(window.devicePixelRatio||1,ZM>1?2:3),v=pg.getViewport({scale:w/v1.width*dpr}),cv=$("#cv");
 cv.width=v.width;cv.height=v.height;cv.style.width=w+"px";
 return pg.render({canvasContext:cv.getContext("2d"),viewport:v}).promise}
-function showPg(p,keep){p=Math.max(1,Math.min(pdf.numPages,p));cur.pos.c=p;
+function showPg(p,keep){p=Math.max(1,Math.min(pdf.numPages,p));cur.pos.c=p;GEN++;TLd=false;
 return pdf.getPage(p).then(function(pg){
-if(ST.pm==="txt")return pgText(pg).then(function(t){if(t){$("#txt").innerHTML=t;$("#txt").hidden=false;$("#pdfw").hidden=true;return}toast("Página sem texto: mostrada como imagem");return drawPg(pg)});
-return drawPg(pg)}).then(function(){if(!keep)window.scrollTo(0,0);$("#pdfw").classList.toggle("zm",ZM>1);lab();sv()})}
+if(ST.pm==="txt")return pgText(pg).then(function(t){if(t){$("#txt").innerHTML='<section data-p="'+p+'">'+t+"</section>";TL=p;$("#txt").hidden=false;$("#pdfw").hidden=true;return}toast("Página sem texto: mostrada como imagem");return drawPg(pg)});
+return drawPg(pg)}).then(function(){if(!keep)window.scrollTo(0,0);$("#pdfw").classList.toggle("zm",ZM>1);lab();sv();fillMore()})}
+function fillMore(){if(!cur||cur.type!=="pdf"||ST.pm!=="txt"||!pdf||TLd||TL>=pdf.numPages||$("#txt").hidden)return;
+if(document.documentElement.scrollHeight-window.scrollY-innerHeight>innerHeight*1.5)return;
+TLd=true;var n=TL+1,g=GEN;
+pdf.getPage(n).then(pgText).then(function(t){if(g!==GEN)return;var s=document.createElement("section");s.dataset.p=n;s.innerHTML=t||'<p class="mu">[Página '+n+' sem texto]</p>';$("#txt").appendChild(s);TL=n;TLd=false;fillMore()}).catch(function(){TLd=false})}
+function updPg(){var s=[].slice.call($("#txt").children),pn=0;s.forEach(function(x){if(x.getBoundingClientRect().top<innerHeight*.35)pn=+x.dataset.p});
+if(pn&&pn!==cur.pos.c){if(Math.floor(pn/10)>Math.floor(cur.pos.max/10))credit();if(pn>cur.pos.max)cur.pos.max=pn;cur.pos.c=pn;lab();sv()}}
+window.addEventListener("scroll",function(){if(!cur||cur.type!=="pdf"||ST.pm!=="txt"||!$("#rd").classList.contains("on"))return;fillMore();clearTimeout(t2);t2=setTimeout(updPg,150)});
 function pm(m){ST.pm=m;ZM=1;sst();if(cur&&cur.type==="pdf")showPg(cur.pos.c)}
 function lab(){$("#lb").textContent=cur.type==="epub"?"Cap. "+(cur.pos.c+1)+" de "+cur.n:"Pág. "+cur.pos.c+" de "+cur.n}
 function sv(){DB.put(cur)}
