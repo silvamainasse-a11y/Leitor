@@ -47,12 +47,15 @@ body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 #set.on{display:block}
 .r{display:flex;gap:8px;margin:8px 0;align-items:center}.r>*{flex:1}.r span{font-size:13px;color:var(--mu);flex:0 0 74px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ac);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:600;display:none;z-index:9}
+#rd.imm .bar,#rd.imm #set{display:none}
+#rd.imm #txt{padding-top:calc(28px + env(safe-area-inset-top,0px));padding-bottom:40px}
+#rd.imm #pdfw{padding:env(safe-area-inset-top,0px) 0 0}
 </style>
 </head>
 <body data-th="noite">
 <div id="home" class="v on"></div>
 <div id="rd" class="v">
-<div class="bar" id="tb"><button onclick="back()">‹ Biblioteca</button><div class="c" id="ttl"></div><button onclick="document.getElementById('set').classList.toggle('on')">Aa</button></div>
+<div class="bar" id="tb"><button onclick="back()">‹ Biblioteca</button><div class="c" id="ttl"></div><button onclick="fs()">⛶</button><button onclick="document.getElementById('set').classList.toggle('on')">Aa</button></div>
 <div id="set"></div>
 <article id="txt"></article>
 <div id="pdfw" hidden><canvas id="cv"></canvas></div>
@@ -121,20 +124,27 @@ function step(d){var c=cur.pos.c+d;cur.pos.y=0;
 if(cur.type==="epub"){if(c<0||c>=ep.spine.length)return;if(c>cur.pos.max){cur.pos.max=c;credit()}showCh(c,0)}
 else{if(c<1||c>pdf.numPages)return;if(Math.floor(c/10)>Math.floor(cur.pos.max/10))credit();if(c>cur.pos.max)cur.pos.max=c;ZM=1;showPg(c)}}
 window.addEventListener("scroll",function(){if(!cur||cur.type!=="epub"||!$("#rd").classList.contains("on"))return;clearTimeout(tmr);tmr=setTimeout(function(){cur.pos.y=window.scrollY/Math.max(1,document.body.scrollHeight-innerHeight);sv()},600)});
-function back(){view("home");DB.all().then(function(a){BK=a;home()})}
+function back(){$("#rd").classList.remove("imm");view("home");DB.all().then(function(a){BK=a;home()})}
 function setUI(){$("#set").innerHTML='<div class="r"><span>Letra</span><button onclick="fz(-1)">A−</button><button onclick="fz(1)">A+</button></div><div class="r"><span>Tema</span><button onclick="th(\'papel\')">Papel</button><button onclick="th(\'sepia\')">Sépia</button><button onclick="th(\'noite\')">Noite</button></div><div class="r"><span>Tipo</span><button onclick="ft(\'serif\')">Serifa</button><button onclick="ft(\'sans\')">Sem serifa</button></div><div class="r"><span>Meta diária</span><button onclick="gl(1)">1 cap.</button><button onclick="gl(2)">2 cap.</button></div>'}
-(function(){var sx=0,sy=0,d0=1,dn=1,pinch=false,sw=false,last=0,rd=document.getElementById("rd");
+(function(){var sx=0,sy=0,lx=0,ly=0,d0=1,dn=1,pinch=false,sw=false,aN=true,aP=true,last=0,tt,rd=document.getElementById("rd");
 function dist(t){return Math.hypot(t[0].clientX-t[1].clientX,t[0].clientY-t[1].clientY)}
 function zoom(r){if(cur.type==="epub"){ST.fs=Math.max(14,Math.min(36,Math.round(ST.fs*r)));sst()}else{ZM=Math.max(1,Math.min(4,ZM*r));showPg(cur.pos.c,true)}}
-rd.addEventListener("touchstart",function(e){if(e.target.closest&&e.target.closest("#set,.bar"))return;if(e.touches.length===2){pinch=true;sw=false;d0=dn=dist(e.touches)}else if(e.touches.length===1){pinch=false;sw=true;sx=e.touches[0].clientX;sy=e.touches[0].clientY}},{passive:true});
-rd.addEventListener("touchmove",function(e){if(pinch&&e.touches.length===2)dn=dist(e.touches)},{passive:true});
-rd.addEventListener("touchend",function(e){if(!cur)return;
+rd.addEventListener("touchstart",function(e){if(!cur||(e.target.closest&&e.target.closest("#set,.bar")))return;
+if(e.touches.length===2){pinch=true;sw=false;d0=dn=dist(e.touches)}
+else if(e.touches.length===1){pinch=false;sw=true;sx=lx=e.touches[0].clientX;sy=ly=e.touches[0].clientY;var p=document.getElementById("pdfw");
+if(cur.type==="pdf"&&ZM>1){aP=p.scrollLeft<=2;aN=p.scrollLeft+p.clientWidth>=p.scrollWidth-2}else{aP=aN=true}}},{passive:true});
+rd.addEventListener("touchmove",function(e){if(pinch&&e.touches.length===2)dn=dist(e.touches);else if(sw&&e.touches.length===1){lx=e.touches[0].clientX;ly=e.touches[0].clientY}},{passive:true});
+function fin(e){if(!cur)return;
 if(pinch){if(e.touches.length<2){pinch=false;var r=dn/d0;if(isFinite(r)&&Math.abs(r-1)>.08)zoom(r)}return}
-if(!sw||!e.changedTouches.length)return;sw=false;
-var dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
-if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.6&&!(cur.type==="pdf"&&ZM>1)){step(dx<0?1:-1)}
-else if(Math.abs(dx)<10&&Math.abs(dy)<10){var t=Date.now();if(t-last<300&&cur.type==="pdf"){ZM=ZM>1?1:2.2;showPg(cur.pos.c,true)}last=t}});
+if(!sw)return;sw=false;var dx=lx-sx,dy=ly-sy;
+if(Math.abs(dx)>50&&Math.abs(dx)>Math.abs(dy)*1.2){if(dx<0&&aN)step(1);else if(dx>0&&aP)step(-1);return}
+if(Math.abs(dx)<10&&Math.abs(dy)<10){var t=Date.now();
+if(t-last<300){clearTimeout(tt);last=0;if(cur.type==="pdf"){ZM=ZM>1?1:2.2;showPg(cur.pos.c,true)}}
+else{last=t;tt=setTimeout(function(){rd.classList.toggle("imm")},300)}}}
+rd.addEventListener("touchend",fin);rd.addEventListener("touchcancel",fin);
 })();
+function fs(){var d=document,r=$("#rd");if(d.fullscreenElement){d.exitFullscreen();r.classList.remove("imm")}else{r.classList.add("imm");try{d.documentElement.requestFullscreen().catch(function(){})}catch(e){}}}
+document.addEventListener("fullscreenchange",function(){if(!document.fullscreenElement)$("#rd").classList.remove("imm")});
 function fz(d){ST.fs=Math.max(14,Math.min(30,ST.fs+d*2));sst()}
 function th(t){ST.th=t;sst()}
 function ft(f){ST.ff=f;sst()}
