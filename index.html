@@ -59,7 +59,12 @@ body[data-th=noite] #cv{filter:invert(1) hue-rotate(180deg)}
 #shb h3,#shb h4{margin:0 0 8px}
 #shb input{width:100%;margin:8px 0}
 mark{background:rgba(255,196,0,.45);color:inherit;border-radius:3px;padding:0 1px}
-#hb{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:8;display:none;background:var(--ac);color:var(--bg);border:0;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#hb{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:8;display:none;gap:8px}
+#hb button{background:var(--ac);color:var(--bg);border:0;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+#hl{position:absolute;left:0;top:0;width:0;height:0;z-index:3;pointer-events:none}
+#hl div{position:absolute;border-radius:3px}
+.hs{background:rgba(95,179,169,.22)}
+.hw{background:rgba(102,217,207,.55)}
 ::highlight(tts-s){background:rgba(95,179,169,.22)}
 ::highlight(tts-w){background:#66d9cf;color:#0b1b1a}
 .ti{padding:12px 0;border-bottom:1px solid var(--bd);cursor:pointer}
@@ -76,7 +81,8 @@ mark{background:rgba(255,196,0,.45);color:inherit;border-radius:3px;padding:0 1p
 <div id="pdfw" hidden><canvas id="cv"></canvas></div>
 <div class="bar" id="bb"><button onclick="step(-1)">‹ Anterior</button><button id="tts" onclick="tts()">🔊</button><div class="c" id="lb" onclick="toc()"></div><button class="pri" onclick="step(1)">Seguinte ›</button></div>
 </div>
-<button id="hb" onpointerdown="event.preventDefault();hlSave()">🖍 Marcar passagem</button>
+<div id="hl"></div>
+<div id="hb"><button onpointerdown="event.preventDefault();hlSave()">🖍 Marcar</button><button onpointerdown="event.preventDefault();readFrom()">▶ Ler daqui</button></div>
 <div id="sh" onclick="if(event.target===this)closeSh()"><div id="shb"></div></div>
 <div id="toast"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -199,7 +205,7 @@ var t=s.toString().replace(/\s+/g," ").trim().slice(0,600);if(t.length<3)return;
 var L=jl("lhl");L.push({id:Date.now(),b:cur.id,bt:cur.title,c:cur.pos.c,lb:cur.type==="epub"?"Cap. "+(cur.pos.c+1):"Pág. "+cur.pos.c,t:t,d:ds()});localStorage.setItem("lhl",JSON.stringify(L));
 try{var m=document.createElement("mark");s.getRangeAt(0).surroundContents(m)}catch(e){}
 s.removeAllRanges();$("#hb").style.display="none";toast("Passagem marcada 🖍")}
-document.addEventListener("selectionchange",function(){var s=getSelection(),ok=cur&&$("#rd").classList.contains("on")&&s&&!s.isCollapsed&&$("#txt").contains(s.anchorNode)&&s.toString().trim().length>2;$("#hb").style.display=ok?"block":"none"});
+document.addEventListener("selectionchange",function(){var s=getSelection(),ok=cur&&$("#rd").classList.contains("on")&&s&&!s.isCollapsed&&$("#txt").contains(s.anchorNode)&&s.toString().trim().length>2;$("#hb").style.display=ok?"flex":"none"});
 function applyHL(root,c){if(!cur)return;jl("lhl").filter(function(x){return x.b===cur.id&&x.c===c}).forEach(function(x){
 var re=new RegExp(x.t.replace(/[.*+?^${}()|[\]\\]/g,"\\$&").replace(/ /g,"\\s+")),w=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),n;
 while(n=w.nextNode()){if(n.parentNode.nodeName==="MARK")continue;var m=re.exec(n.nodeValue);if(m){try{var r=document.createRange();r.setStart(n,m.index);r.setEnd(n,m.index+m[0].length);r.surroundContents(document.createElement("mark"))}catch(e){}break}}})}
@@ -208,7 +214,7 @@ h+="<h4>"+esc(x.bt)+'</h4><p class="mu">'+esc(x.lb)+" · "+esc(x.d)+"</p><p>“"
 sheet(h||"<p>Ainda não marcaste passagens. Seleciona um texto e toca em 🖍 Marcar passagem.</p>")}
 function hlDel(i){localStorage.setItem("lhl",JSON.stringify(jl("lhl").filter(function(x){return x.id!==i})));hlList(0)}
 function hlCopy(i){var x=jl("lhl").filter(function(y){return y.id===i})[0];if(x&&navigator.clipboard)navigator.clipboard.writeText("“"+x.t+"” — "+x.bt+", "+x.lb).then(function(){toast("Copiado")})}
-var TS=0,TQ=[],TI=0,TK="",WL=null,TM=null,gotB=false,etm=null,HL=window.CSS&&CSS.highlights;
+var TS=0,TQ=[],TI=0,TK="",WL=null,TM=null,gotB=false,etm=null,HL=1;
 function chunks(t){var re=/[^.!?;:]+[.!?;:]*["”»)]*\s*/g,m,o=[],c="",cs=0;
 while(m=re.exec(t)){if(!c)cs=m.index;if((c+m[0]).length>220&&c){o.push({t:c,s:cs});c=m[0];cs=m.index}else c+=m[0]}
 if(c)o.push({t:c,s:cs});return o.length?o:[{t:t,s:0}]}
@@ -220,16 +226,18 @@ if(pb&&b!==pb&&full&&full.slice(-1)!==" "){full+=" ";map.push([n,0])}pb=b;
 var v=n.nodeValue;for(var i=0;i<v.length;i++){if(/\s/.test(v[i])){if(full&&full.slice(-1)!==" "){full+=" ";map.push([n,i])}}else{full+=v[i];map.push([n,i])}}}
 return{full:full,map:map}}
 function rng(a,b){if(!TM||!HL||a>=b)return null;var s=TM.map[a],e=TM.map[Math.min(b,TM.map.length)-1];if(!s||!e)return null;var r=document.createRange();try{r.setStart(s[0],s[1]);r.setEnd(e[0],e[1]+1)}catch(x){return null}return r}
-function showS(a,b){var r=rng(a,b);if(r)HL.set("tts-s",new Highlight(r))}
-function showW(a,b){var r=rng(a,b);if(!r)return;HL.set("tts-w",new Highlight(r));var q=r.getBoundingClientRect();if(q.top<110||q.bottom>innerHeight-110)window.scrollBy({top:q.top-innerHeight*.35,behavior:"smooth"})}
-function clearH(){clearTimeout(etm);if(HL){HL.delete("tts-s");HL.delete("tts-w")}}
+function rmc(c){[].slice.call(document.querySelectorAll("#hl ."+c)).forEach(function(e){e.remove()})}
+function drawR(r,c){[].slice.call(r.getClientRects()).forEach(function(q){var d=document.createElement("div");d.className=c;d.style.cssText="left:"+(q.left+scrollX)+"px;top:"+(q.top+scrollY)+"px;width:"+q.width+"px;height:"+q.height+"px";$("#hl").appendChild(d)})}
+function showS(a,b){var r=rng(a,b);if(r){rmc("hs");drawR(r,"hs")}}
+function showW(a,b){var r=rng(a,b);if(!r)return;rmc("hw");drawR(r,"hw");var q=r.getBoundingClientRect();if(q.top<110||q.bottom>innerHeight-110)window.scrollBy({top:q.top-innerHeight*.35,behavior:"smooth"})}
+function clearH(){clearTimeout(etm);$("#hl").innerHTML=""}
 function est(ch){var ws=[],m,re=/\S+/g,k=0;while(m=re.exec(ch.t))ws.push([ch.s+m.index,m[0].length]);
 (function nx(){if(!TS||gotB||k>=ws.length)return;showW(ws[k][0],ws[k][0]+ws[k][1]);var d=(ws[k][1]+1)*(1000/(15*(ST.rate||1)));k++;etm=setTimeout(nx,d)})()}
 function setTb(){$("#tts").textContent=TS?"⏸":"🔊"}
 function say(){if(!TS)return;if(TI>=TQ.length){tend();return}
 var ch=TQ[TI],u=new SpeechSynthesisUtterance(ch.t);u.lang="pt-PT";u.rate=ST.rate||1;
 var v=speechSynthesis.getVoices().filter(function(x){return/^pt/i.test(x.lang)});if(v.length)u.voice=v.filter(function(x){return/pt[-_]PT/i.test(x.lang)})[0]||v[0];
-gotB=false;clearTimeout(etm);if(TM&&HL){showS(ch.s,ch.s+ch.t.length);HL.delete("tts-w")}
+gotB=false;clearTimeout(etm);if(TM){showS(ch.s,ch.s+ch.t.length);rmc("hw")}
 u.onboundary=function(e){if(!TM||!HL||(e.name&&e.name!=="word"))return;gotB=true;clearTimeout(etm);var i=ch.s+e.charIndex,j=i+(e.charLength||0);if(!e.charLength){while(j<TM.full.length&&!/[\s.,;:!?]/.test(TM.full[j]))j++}showW(i,j)};
 u.onstart=function(){setTimeout(function(){if(TS&&!gotB&&TM&&HL)est(ch)},250)};
 u.onend=function(){if(TS){TI++;say()}};u.onerror=function(){if(TS){TI++;say()}};speechSynthesis.speak(u)}
@@ -239,6 +247,15 @@ function tend(){TI=0;TQ=[];TK="";clearH();
 if(cur.type==="pdf"&&cur.pos.c<pdf.numPages){var c=cur.pos.c+1;if(Math.floor(c/10)>Math.floor(cur.pos.max/10))credit();if(c>cur.pos.max)cur.pos.max=c;showPg(c).then(function(){if(TS)startRead()})}
 else{tstop();toast("Fim do capítulo")}}
 function tstop(){TS=0;try{speechSynthesis.cancel()}catch(e){}clearH();if(WL){try{WL.release()}catch(e){}WL=null}setTb()}
+function readFrom(){var s=getSelection();if(!s||s.isCollapsed||!cur)return;var r=s.getRangeAt(0),nd=r.startContainer,el=nd.nodeType===1?nd:nd.parentElement;
+if(!el||!$("#txt").contains(el))return;var sec=el.closest("section");
+if(sec&&cur.type==="pdf"){cur.pos.c=+sec.dataset.p;lab()}
+tstop();TM=buildMap(sec||$("#txt"));var k=-1;
+for(var i=0;i<TM.map.length;i++){var m=TM.map[i];try{if(r.isPointInRange(m[0],m[1])){k=i;break}}catch(e){}}
+if(k<0)k=0;while(k>0&&TM.full[k-1]!==" ")k--;
+TQ=chunks(TM.full.slice(k)).map(function(c){return{t:c.t,s:c.s+k}});TI=0;TK=tkey();
+s.removeAllRanges();$("#hb").style.display="none";
+TS=1;setTb();try{navigator.wakeLock.request("screen").then(function(l){WL=l}).catch(function(){})}catch(e){}say()}
 function tts(){if(!cur)return;if(!window.speechSynthesis){toast("Este navegador não lê em voz alta");return}
 if(TS){tstop();return}
 TS=1;setTb();try{navigator.wakeLock.request("screen").then(function(l){WL=l}).catch(function(){})}catch(e){}
